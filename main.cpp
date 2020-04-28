@@ -6,7 +6,7 @@
 #include <mutex>
 #include <queue>
 #include <mutex>
-
+#include "TCPConnection.h"
 void callTask(int a, int b) {
     std::cout << a + b;
 }
@@ -14,6 +14,8 @@ void callTask(int a, int b) {
 #include <iostream>
 using  namespace  std;
 int main() {
-    cout<<"hello world";
+    Poller poller;
+    TCPConnection connection(&poller,8888);
+    connection.start();
     return 0;
 }
