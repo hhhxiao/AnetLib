@@ -1,6 +1,8 @@
 <component name="ProjectDictionaryState">
   <dictionary name="hhhxiao">
     <words>
+      <w>epoll</w>
+      <w>poller</w>
       <w>threadpool</w>
     </words>
   </dictionary>
