@@ -12,47 +12,71 @@
 #include <cassert>
 #include "IOListener.h"
 
+#include <cstring>
+
 #define  MAXSIZE 1024
 
 class Poller {
 private:
     int fd;
 
-    void wait();
 
-    void loop_wait();
+    void init();
 
     epoll_event events[MAXSIZE];
-    std::vector<std::shared_ptr<IOListener>> listeners;
+    std::vector<IOListener *> listeners;
 public:
     Poller() : fd(-1) {
         init();
     }
 
+    void wait();
 
-    void init() {
-        this->fd = epoll_create(MAXSIZE);
-        if (fd == -1)
-            throw std::runtime_error("epoll create failure");
-    }
-    void addListener(int) {
+    [[noreturn]] void loop_wait();
 
-    }
+    void addListener(IOListener *listener);
 };
 
 
+//wait once
 void Poller::wait() {
     assert(this->fd != -1);
     int num = epoll_wait(this->fd, this->events, MAXSIZE, -1);
     for (int i = 0; i < num; ++i) {
-        int f = events[i].data.fd;
-        this->listeners[i].get()->onRead();
+        IOListener *listener = (IOListener *) this->events[i].data.ptr;
+        int event = events[i].events;
+        if (listener) {
+            if (event & EPOLLIN) {
+                listener->onRead();
+            }
+            if (event & EPOLLOUT) {
+                listener->onWrite();
+            }
+        }
     }
 }
 
-void Poller::loop_wait() {
+
+[[noreturn]] void Poller::loop_wait() {
     while (true)
         wait();
+}
+
+void Poller::addListener(IOListener *listener) {
+    struct epoll_event event;
+    memset(&event, 0, sizeof(event));
+    event.events = listener->getEvent();
+    event.data.ptr = listener;
+    int r = epoll_ctl(this->fd, EPOLL_CTL_ADD, listener->getFd(), &event);
+    if (r < 0) {
+        std::cout << "epoll ctl failure\n";
+    }
+}
+
+void Poller::init() {
+    this->fd = epoll_create(MAXSIZE);
+    if (fd == -1)
+        throw std::runtime_error("epoll create failure");
 }
 
 

@@ -7,15 +7,18 @@
 #include <queue>
 #include <mutex>
 #include "TCPConnection.h"
-void callTask(int a, int b) {
-    std::cout << a + b;
-}
-
 #include <iostream>
-using  namespace  std;
+
+using namespace std;
+
 int main() {
     Poller poller;
-    TCPConnection connection(&poller,8888);
-    connection.start();
+    //set et mode
+    IOListener ioListener(STDIN_FILENO, EPOLLIN | EPOLLET);
+    ioListener.setReadEvent([]() {
+        printf("data received \n");
+    });
+    poller.addListener(&ioListener);
+    poller.loop_wait();
     return 0;
 }
