@@ -15,16 +15,22 @@ private:
     std::function<void()> readEvent;
     std::function<void()> writeEvent;
 public:
+    IOListener(const IOListener &) = delete;
+    IOListener &operator=(const IOListener &) = delete;
     IOListener(int fd, unsigned events);
-    void setReadEvent(std::function<void()> task) {
+
+    void onRead(std::function<void()> task) {
         this->readEvent = std::move(task);
     }
-    void setWriteEvent(std::function<void()> task) {
+
+    void onWrite(std::function<void()> task) {
         this->writeEvent = std::move(task);
     }
+
     void onWrite() {
         this->writeEvent();
     }
+
 
     void onRead() {
         this->readEvent();
