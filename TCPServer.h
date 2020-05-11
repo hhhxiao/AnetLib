@@ -56,22 +56,19 @@ TCPServer::TCPServer(int port) : port(port) {
     initAddress(&address, port);
     this->fd = socket(PF_INET, SOCK_STREAM, 0);
     expect(fd != -1, "socket create error");
+    set_no_blocking(this->fd);
     int result = bind(this->fd, (struct sockaddr *) &address, sizeof(address));
     expect(result != -1, "binding error");
     result = listen(this->fd, 5);
     expect(result != -1, "listener error");
-    auto *listener = new IOListener(this->fd, EPOLLIN | EPOLLET);
-
-    listener->onRead([this]() {
+    auto listener = new IOListener(this->fd, EPOLLIN);
+    listener->setReadEvent([this]() {
         auto conn = this->accept();
         this->connBuildEvent(conn);
     });
     this->poller->addListener(listener);
     info("server config finish");
 }
-
-
-
 
 
 void TCPServer::initAddress(struct sockaddr_in *address, int port) {
@@ -88,6 +85,7 @@ TcpConnection *TCPServer::accept() const {
     socklen_t len;
     int client_socket = ::accept(this->fd, (
             struct sockaddr *) &client_address, &len);
+    set_no_blocking(client_socket);
     auto *conn = new TcpConnection(client_socket);
     this->poller->addListener(conn->getListener());
     return conn;

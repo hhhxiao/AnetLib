@@ -5,13 +5,12 @@
 using namespace std;
 
 int main() {
-    TCPServer server(8080);
+    TCPServer server(8808);
     server.onConnBuild([=](TcpConnection *conn) {
         printf("a new connection\n");
-        conn->onRead([&conn] {
-            conn->sendMessage("hello world");
-        });
     });
     server.start();
+
     return 0;
 }
+

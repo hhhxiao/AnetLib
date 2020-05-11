@@ -7,10 +7,10 @@
 
 #include <utility>
 #include <sys/epoll.h>
-
+#include <queue>
 #include "IOListener.h"
 
-#define MAX_BUFF_SIZE 1024
+#define MAX_BUFF_SIZE 64
 
 class TcpConnection {
 private:
@@ -39,26 +39,41 @@ public:
 
     }
 
+    std::string getText() {
+//        std::string s(this->inputBuffer);
+//        this->inputBuffer.clear();
+//        return s;
+        return "";
+    }
+
     inline void close() const { ::close(this->socket); }
 
     inline IOListener *getListener() {
         return this->listener;
     }
 
-    std::string readAll() const {
-        int len = 0;
-        std::string s;
+    void readAll() {
+        int bytes_len;
         char buffer[MAX_BUFF_SIZE];
         memset(buffer, 0, MAX_BUFF_SIZE);
-        do {
-            len = ::read(this->socket, buffer, MAX_BUFF_SIZE);
-            // printf("read:%s", buffer);
-            s += std::string(buffer);
-            buffer[0] = 0;
-        } while (len > 0);
-        return s;
+        while (true) {
+            bytes_len = read(this->socket, buffer, MAX_BUFF_SIZE);
+            if (bytes_len < 0) {
+                if (errno == EAGAIN)break;
+            } else if (bytes_len == 0) {
+                break;
+            } else {
+                for (int i = 0; i < bytes_len; ++i)
+                    this->inputBuffer.push_back(buffer[i]);
+                // memset(buffer, 0, MAX_BUFF_SIZE);
+            }
+        }
+        std::cout << this->getText() << std::endl;
+        this->getText().clear();
+        //  this->readEvent();
     }
 };
+
 
 TcpConnection::TcpConnection(int socket) : socket(socket) {
     this->listener = new IOListener(socket, EPOLLIN | EPOLLET);
@@ -66,10 +81,9 @@ TcpConnection::TcpConnection(int socket) : socket(socket) {
 
 void TcpConnection::onRead(std::function<void()> todo) {
     this->readEvent = std::move(todo);
-    this->listener->onRead([this]() {
-        this->readEvent();
-    });
+    this->listener->setReadEvent([]() {});
 }
+
 
 void TcpConnection::onClose(std::function<void()> todo) {
     this->closeEvent = std::move(todo);
@@ -80,7 +94,7 @@ TcpConnection::~TcpConnection() {
 }
 
 void TcpConnection::sendMessage(const char *msg) const {
-    printf("current fd:%d\n", this->socket);
+    //  printf("current fd:%d\n", this->socket);
     ::write(this->socket, msg, strlen(msg));
 }
 

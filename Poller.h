@@ -13,20 +13,28 @@
 #include "IOListener.h"
 #include "utils.h"
 #include <cstring>
+#include <iostream>
 
 #define  MAXSIZE 1024
+
+#include <set>
 
 class Poller {
 private:
     int fd = -1;
     epoll_event events[MAXSIZE]{};
-    std::vector<IOListener *> listeners;
+    std::set<IOListener *> listeners;
 public:
     Poller() {
         this->fd = epoll_create(MAXSIZE);
         expect(this->fd != -1, "poller create failure");
     }
 
+    ~Poller() {
+        if (this->fd > 0) {
+            ::close(this->fd);
+        }
+    }
 
     //none copyable
     Poller(const Poller &poller) = delete;
@@ -40,6 +48,8 @@ public:
     void addListener(IOListener *listener);
 
     void removeListener(IOListener *listener);
+
+    void changeListener(IOListener *listener, unsigned int event);
 };
 
 
@@ -52,7 +62,6 @@ void Poller::wait() {
         auto listener = (IOListener *) this->events[i].data.ptr;
         unsigned event = events[i].events;
         if (listener) {
-            printf("epoll from  %d-----%d\n", events[i].data.fd, listener->getFd());
             if (event & EPOLLIN) {
                 listener->onRead();
             }
@@ -78,10 +87,27 @@ void Poller::addListener(IOListener *listener) {
     event.data.ptr = listener;
     int r = epoll_ctl(this->fd, EPOLL_CTL_ADD, listener->getFd(), &event);
     expect(r != -1, "epoll ctl failure when add listener");
-    this->listeners.push_back(listener);
+    this->listeners.insert(listener);
 }
 
 void Poller::removeListener(IOListener *listener) {
+    expect(listener, "[remove listener:] receive a nullptr");
+    int r = epoll_ctl(this->fd, EPOLL_CTL_DEL, listener->getFd(), nullptr);
+    expect(r != -1, "epoll remove failure");
+    this->listeners.erase(listener);
+    delete listener;
 }
+
+void Poller::changeListener(IOListener *listener, unsigned int event) {
+    expect(listener, "[remove listener:] receive a nullptr");
+    auto r = this->listeners.find(listener);
+    if (r == listeners.end())return;
+    struct epoll_event epoll_event{};
+    epoll_event.events = event;
+    epoll_event.data.fd = listener->getFd();
+    epoll_event.data.ptr = listener;
+    epoll_ctl(this->fd, EPOLL_CTL_MOD, listener->getFd(), &epoll_event);
+}
+
 
 #endif //ANET_POLLER_H

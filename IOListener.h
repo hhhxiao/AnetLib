@@ -16,36 +16,44 @@ private:
     std::function<void()> writeEvent;
 public:
     IOListener(const IOListener &) = delete;
+
     IOListener &operator=(const IOListener &) = delete;
+
     IOListener(int fd, unsigned events);
 
-    void onRead(std::function<void()> task) {
-        this->readEvent = std::move(task);
-    }
+    void setReadEvent(std::function<void()> task);
 
-    void onWrite(std::function<void()> task) {
-        this->writeEvent = std::move(task);
-    }
+    void setWriteEvent(std::function<void()> task);
 
     void onWrite() {
         this->writeEvent();
     }
 
 
-    void onRead() {
+    void onRead() const {
+        //printf("read event from %d\n", this->fd);
         this->readEvent();
     }
 
-    int getFd() const {
+
+    inline int getFd() const {
         return this->fd;
     }
 
-    unsigned getEvent() const {
+    inline unsigned getEvent() const {
         return this->event;
     }
 };
 
 IOListener::IOListener(int fd, unsigned int events) : fd(fd), event(events) {}
+
+void IOListener::setWriteEvent(std::function<void()> task) {
+    this->writeEvent = std::move(task);
+}
+
+void IOListener::setReadEvent(std::function<void()> task) {
+    this->readEvent = std::move(task);
+}
 
 
 #endif //ANET_IOLISTENER_H
