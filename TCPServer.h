@@ -15,16 +15,20 @@
 #include <arpa/inet.h>
 #include "utils.h"
 #include "TcpConnection.h"
+#include "ThreadPool.h"
 
 class TCPServer {
 private:
+    ThreadPool threadPool;
+
     static void initAddress(struct sockaddr_in *address, int port);
 
     uint32_t port;
     int fd;
     Poller *poller;
 
-    TcpConnection *accept() const;
+    void accept();
+
 
     std::function<void(TcpConnection *)> connBuildEvent;
     std::function<void()> connClosedEvent;
@@ -33,9 +37,12 @@ public:
 
     void onConnBuild(std::function<void(TcpConnection *)> todo);
 
+    void exitIf() {
+    }
+
     void onConnClosed(std::function<void()> todo);
 
-    void start() const;
+    void start();
 
     ~TCPServer() {
         delete poller;
@@ -44,7 +51,7 @@ public:
 };
 
 
-void TCPServer::start() const {
+void TCPServer::start() {
     expect(poller, "start failure: nullptr(poller)");
     log("server start");
     this->poller->loop_wait();
@@ -62,10 +69,7 @@ TCPServer::TCPServer(int port) : port(port) {
     result = listen(this->fd, 5);
     expect(result != -1, "listener error");
     auto listener = new IOListener(this->fd, EPOLLIN);
-    listener->setReadEvent([this]() {
-        auto conn = this->accept();
-        this->connBuildEvent(conn);
-    });
+    listener->setReadEvent([this]() { this->accept(); });
     this->poller->addListener(listener);
     info("server config finish");
 }
@@ -80,20 +84,26 @@ void TCPServer::initAddress(struct sockaddr_in *address, int port) {
     }
 }
 
-TcpConnection *TCPServer::accept() const {
+void TCPServer::accept() {
     struct sockaddr_in client_address{};
     socklen_t len;
     int client_socket = ::accept(this->fd, (
             struct sockaddr *) &client_address, &len);
     set_no_blocking(client_socket);
-    auto *conn = new TcpConnection(client_socket);
-    this->poller->addListener(conn->getListener());
-    return conn;
+
+    //add to thread pool;
+    threadPool.enqueue([this, client_socket]() {
+        auto *conn = new TcpConnection(client_socket);
+        this->connBuildEvent(conn);
+        this->poller->addListener(conn->getListener());
+    });
 }
+
 
 void TCPServer::onConnBuild(std::function<void(TcpConnection *)> todo) {
     this->connBuildEvent = std::move(todo);
 }
+
 
 void TCPServer::onConnClosed(std::function<void()> todo) {
     this->connClosedEvent = std::move(todo);

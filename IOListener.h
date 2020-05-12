@@ -25,6 +25,7 @@ public:
 
     void setWriteEvent(std::function<void()> task);
 
+
     void onWrite() {
         this->writeEvent();
     }

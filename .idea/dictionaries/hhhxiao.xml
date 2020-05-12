@@ -2,8 +2,10 @@
   <dictionary name="hhhxiao">
     <words>
       <w>epoll</w>
+      <w>epolling</w>
       <w>poller</w>
       <w>threadpool</w>
+      <w>xiaohengying</w>
     </words>
   </dictionary>
 </component>
