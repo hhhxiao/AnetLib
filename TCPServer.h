@@ -19,7 +19,7 @@
 
 class TCPServer {
 private:
-    ThreadPool threadPool;
+    ThreadPool *threadPool;
 
     static void initAddress(struct sockaddr_in *address, int port);
 
@@ -29,18 +29,16 @@ private:
 
     void accept();
 
-
     std::function<void(TcpConnection *)> connBuildEvent;
-    std::function<void()> connClosedEvent;
 public:
-    explicit TCPServer(int port);
+
+    TCPServer(int port, ThreadPool *pool);
 
     void onConnBuild(std::function<void(TcpConnection *)> todo);
 
     void exitIf() {
     }
 
-    void onConnClosed(std::function<void()> todo);
 
     void start();
 
@@ -57,7 +55,8 @@ void TCPServer::start() {
     this->poller->loop_wait();
 }
 
-TCPServer::TCPServer(int port) : port(port) {
+TCPServer::TCPServer(int port, ThreadPool *pool) : port(port), threadPool(pool) {
+    expect(pool, "get a nullptr of thread pool");
     this->poller = new Poller();
     struct sockaddr_in address{};
     initAddress(&address, port);
@@ -90,23 +89,16 @@ void TCPServer::accept() {
     int client_socket = ::accept(this->fd, (
             struct sockaddr *) &client_address, &len);
     set_no_blocking(client_socket);
-
-    //add to thread pool;
-    threadPool.enqueue([this, client_socket]() {
-        auto *conn = new TcpConnection(client_socket);
-        this->connBuildEvent(conn);
-        this->poller->addListener(conn->getListener());
-    });
+    expect(client_socket != -1, "connection error");
+    auto conn = new TcpConnection(client_socket, this->threadPool, this->poller);
+    this->connBuildEvent(conn);
 }
+
+
 
 
 void TCPServer::onConnBuild(std::function<void(TcpConnection *)> todo) {
     this->connBuildEvent = std::move(todo);
-}
-
-
-void TCPServer::onConnClosed(std::function<void()> todo) {
-    this->connClosedEvent = std::move(todo);
 }
 
 #endif //ANET_TCPSERVER_H

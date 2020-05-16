@@ -4,7 +4,7 @@
 
 #ifndef ANET_IOLISTENER_H
 #define ANET_IOLISTENER_H
-
+#include "utils.h"
 #include <functional>
 #include <utility>
 
@@ -14,6 +14,7 @@ private:
     const unsigned event;
     std::function<void()> readEvent;
     std::function<void()> writeEvent;
+    std::function<void()> closeEvent;
 public:
     IOListener(const IOListener &) = delete;
 
@@ -24,6 +25,8 @@ public:
     void setReadEvent(std::function<void()> task);
 
     void setWriteEvent(std::function<void()> task);
+
+    void setCloseEvent(std::function<void()> task);
 
 
     void onWrite() {
@@ -44,9 +47,16 @@ public:
     inline unsigned getEvent() const {
         return this->event;
     }
+
+    void onClose() {
+        this->closeEvent();
+    }
 };
 
-IOListener::IOListener(int fd, unsigned int events) : fd(fd), event(events) {}
+IOListener::IOListener(int fd, unsigned int events) : fd(fd), event(events) {
+    expect(fd > 0 ,"[IO Listener] fd error");
+
+}
 
 void IOListener::setWriteEvent(std::function<void()> task) {
     this->writeEvent = std::move(task);
@@ -54,6 +64,10 @@ void IOListener::setWriteEvent(std::function<void()> task) {
 
 void IOListener::setReadEvent(std::function<void()> task) {
     this->readEvent = std::move(task);
+}
+
+void IOListener::setCloseEvent(std::function<void()> task) {
+    this->closeEvent = std::move(task);
 }
 
 

@@ -14,11 +14,16 @@
 #include "utils.h"
 #include <cstring>
 #include <iostream>
+#include <cerrno>
 
 #define  MAXSIZE 1024
 
 #include <set>
 
+/**
+ *Poller
+ * a simple IO event detector
+ */
 class Poller {
 private:
     bool epolling = false;
@@ -70,10 +75,15 @@ void Poller::wait() {
             if (event & EPOLLOUT) {
                 listener->onWrite();
             }
+            if (event & EPOLLRDHUP) {
+                listener->onClose();
+            }
+            if (event & EPOLLERR) {
+                printf("EPOLL ERR event\n");
+            }
         }
     }
 }
-
 
 [[noreturn]] void Poller::loop_wait() {
     while (true)
@@ -88,17 +98,20 @@ void Poller::addListener(IOListener *listener) {
     event.data.fd = listener->getFd();
     event.data.ptr = listener;
     int r = epoll_ctl(this->fd, EPOLL_CTL_ADD, listener->getFd(), &event);
-    expect(r != -1, "epoll ctl failure when add listener");
+    expect(r != -1, strerror(errno));
     this->listeners.insert(listener);
 }
 
+
 void Poller::removeListener(IOListener *listener) {
-    expect(listener, "[remove listener:] receive a nullptr");
+    if (!listener)
+        return;
     int r = epoll_ctl(this->fd, EPOLL_CTL_DEL, listener->getFd(), nullptr);
     expect(r != -1, "epoll remove failure");
     this->listeners.erase(listener);
     delete listener;
 }
+
 
 void Poller::changeListener(IOListener *listener, unsigned int event) {
     expect(listener, "[remove listener:] receive a nullptr");
