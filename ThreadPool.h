@@ -68,7 +68,6 @@ template<typename Function, typename... Args>
 std::future<typename std::result_of<Function(Args...)>::type>
 ThreadPool::enqueue(Function &&f, Args &&... args) {
 
-    std::cout << "new task\n";
     using return_type = typename std::result_of<Function(Args...)>::type;
 
     auto task = std::make_shared<std::packaged_task<return_type()>>(
@@ -82,7 +81,6 @@ ThreadPool::enqueue(Function &&f, Args &&... args) {
         task_queue.emplace([task]() { (*task)(); });
     }
     cond_val.notify_all();
-    std::cout << "task finished\n";
     return res;
 }
 

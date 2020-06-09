@@ -55,7 +55,6 @@ public:
 
 IOListener::IOListener(int fd, unsigned int events) : fd(fd), event(events) {
     expect(fd > 0 ,"[IO Listener] fd error");
-
 }
 
 void IOListener::setWriteEvent(std::function<void()> task) {

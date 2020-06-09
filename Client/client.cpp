@@ -41,7 +41,6 @@ int main(int argc, const char *argv[]) {
     server_address.sin_family = AF_INET;
     server_address.sin_addr.s_addr = inet_addr(argv[1]);
     server_address.sin_port = htons(atoi(argv[2]));
-
     std::vector<std::thread> threadList;
     threadList.reserve(10);
     for (int i = 0; i < 10; ++i)

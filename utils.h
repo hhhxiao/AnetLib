@@ -20,3 +20,5 @@ void info(const char *info);
 
 void set_no_blocking(int fd);
 #endif //ANET_UTILS_H
+
+std::string now();

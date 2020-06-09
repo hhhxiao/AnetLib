@@ -16,12 +16,15 @@ private:
     char *_end;
 
     void incCapacity() {
-        char *newBuffer = new char[capacity * 2];
-        memset(newBuffer, 0, capacity * 2);
-        for (int i = 0; i < capacity; ++i)
+        //alloc memory
+        capacity *= 2; //add capacity
+        char *newBuffer = new char[capacity];
+        memset(newBuffer, 0, capacity);
+        auto len = _end - _begin;
+        for (int i = 0; i < len; ++i)
             newBuffer[i] = _begin[i];
-        auto len = size();
-        delete _begin;
+        delete[] _begin;
+        //reset _begin and _end
         _begin = newBuffer;
         _end = newBuffer + len;
     }
@@ -29,18 +32,25 @@ private:
 public:
     DataBuffer() : _begin(nullptr), _end(nullptr) {}
 
+    ~DataBuffer() {
+        delete[] _begin;
+    }
+
     iterator begin() {
         return this->_begin;
     }
 
     void push_back(const char c) {
+        //the first push_back
         if (!_begin) {
-            this->_begin = new char[64];
-            this->capacity = 64;
+            this->_begin = new char[1024];
+            this->capacity = 1024;
             *_begin = c;
             this->_end = _begin + 1;
         } else {
+            //not the first push_back
             if (size() == capacity) {
+                printf("size is %zu\n", size());
                 //inc capacity
                 incCapacity();
             }
@@ -51,6 +61,10 @@ public:
 
     iterator end() {
         return this->_end;
+    }
+
+    size_t cap() const {
+        return capacity;
     }
 
     size_t size() {

@@ -16,10 +16,13 @@
 #include "utils.h"
 #include "TcpConnection.h"
 #include "ThreadPool.h"
+#include <fstream>
 
 class TCPServer {
 private:
     ThreadPool *threadPool;
+    std::string logFile;
+    std::ofstream logStream;
 
     static void initAddress(struct sockaddr_in *address, int port);
 
@@ -32,7 +35,13 @@ private:
     std::function<void(TcpConnection *)> connBuildEvent;
 public:
 
+
     TCPServer(int port, ThreadPool *pool);
+
+    void setLogFile(const std::string &fileName) {
+        this->logFile = fileName;
+    }
+
 
     void onConnBuild(std::function<void(TcpConnection *)> todo);
 
@@ -43,8 +52,8 @@ public:
     void start();
 
     ~TCPServer() {
-        delete poller;
-        ::close(this->fd);
+       // delete poller;
+       // ::close(this->fd);
     }
 };
 
@@ -83,19 +92,18 @@ void TCPServer::initAddress(struct sockaddr_in *address, int port) {
     }
 }
 
+
 void TCPServer::accept() {
     struct sockaddr_in client_address{};
     socklen_t len;
     int client_socket = ::accept(this->fd, (
             struct sockaddr *) &client_address, &len);
     set_no_blocking(client_socket);
+  //  printf("fd is %d  error is:%s\n", this->fd, strerror(errno));
     expect(client_socket != -1, "connection error");
     auto conn = new TcpConnection(client_socket, this->threadPool, this->poller);
     this->connBuildEvent(conn);
 }
-
-
-
 
 void TCPServer::onConnBuild(std::function<void(TcpConnection *)> todo) {
     this->connBuildEvent = std::move(todo);
