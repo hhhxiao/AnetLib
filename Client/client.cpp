@@ -15,10 +15,11 @@
 
 #define BUFF_SIZE 64
 
+//upload function
 void buildConnect(sockaddr_in *address, int id) {
-    int sock = socket(PF_INET, SOCK_STREAM, 0);
-    expect(sock != -1, "socket create failure\n");
-    int result = connect(sock, (struct sockaddr *) address, sizeof(*address));
+    int sock_fd = socket(PF_INET, SOCK_STREAM, 0);
+    expect(sock_fd != -1, "socket create failure\n");
+    int result = connect(sock_fd, (struct sockaddr *) address, sizeof(*address));
     expect(result != -1, "connect failure\n");
     printf("thread: %d build connect\n", id);
     char buffer[BUFF_SIZE];
@@ -27,13 +28,12 @@ void buildConnect(sockaddr_in *address, int id) {
     while (true) {
         len = fread((void *) buffer, 1, BUFF_SIZE, fp);
         if (len < BUFF_SIZE) {
-            write(sock, buffer, len);
+            write(sock_fd, buffer, len);
             break;
         }
-        write(sock, buffer, BUFF_SIZE);
+        write(sock_fd, buffer, BUFF_SIZE);
     }
-   // shutdown(sock, SHUT_WR);
-    //  close(sock);
+    close(sock_fd);
 }
 
 int main(int argc, const char *argv[]) {
@@ -56,6 +56,5 @@ int main(int argc, const char *argv[]) {
         thread.join();
     return 0;
 }
-
 
 

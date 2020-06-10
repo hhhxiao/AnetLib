@@ -65,7 +65,6 @@ void Poller::wait() {
     this->epolling = true;
     int num = epoll_wait(this->fd, this->events, MAXSIZE, -1);
     for (int i = 0; i < num; ++i) {
-        //todo:  error here need more about epoll
         auto listener = (IOListener *) this->events[i].data.ptr;
         unsigned event = events[i].events;
         if (listener) {

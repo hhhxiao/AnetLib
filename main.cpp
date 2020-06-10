@@ -15,21 +15,41 @@ int main() {
     ThreadPool pool;
     TCPServer server(8888, &pool);
     int i = 0;
-    std::map<TcpConnection *, int> connectionList;
-    server.onConnBuild([&connectionList, &i](TcpConnection *conn) {
-        connectionList.insert({conn, i});
-        printf("%d has connected\n",i);
+    std::map<TcpConnection *, int> connList;
+    std::map<int, FILE *> fileList;
+
+    server.onConnBuild([&connList, &i, &fileList](TcpConnection *conn) {
+        //a new connection build
+        printf("%d has connected\n", i);
+        connList.insert({conn, i});
+        FILE *fp = fopen(std::to_string(i).append(".txt").c_str(), "wb");
+        fileList.insert({i, fp});
         ++i;
-        conn->onRead([conn, &connectionList] {
-            printf("from:%d  %s  \n", connectionList[conn], conn->getText().c_str());
+
+        conn->onRead([conn, &connList, &fileList] {
+            auto fp = fileList[connList[conn]];
+            if (fp) {
+                fputs(conn->getText().c_str(), fp);
+            }
         });
-        conn->onClose([conn, &connectionList] {
-            printf("%d has closed\n", connectionList[conn]);
+
+        conn->onClose([conn, &connList, &fileList] {
+            auto connIndex = connList[conn];
+            printf("%d has closed\n", connIndex);
+            auto fp = fileList[connIndex];
+            if (fp) {
+                fclose(fp);
+            }
+            fileList.erase(connIndex);
+            connList.erase(conn);
         });
     });
     server.start();
     return 0;
 }
+
+
+
 
 
 

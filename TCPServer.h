@@ -17,12 +17,15 @@
 #include "TcpConnection.h"
 #include "ThreadPool.h"
 #include <fstream>
+#include <set>
 
 class TCPServer {
 private:
     ThreadPool *threadPool;
     std::string logFile;
     std::ofstream logStream;
+    std::set<TcpConnection *> connectList;
+
 
     static void initAddress(struct sockaddr_in *address, int port);
 
@@ -42,18 +45,29 @@ public:
         this->logFile = fileName;
     }
 
-
     void onConnBuild(std::function<void(TcpConnection *)> todo);
 
     void exitIf() {
     }
 
 
+    void cleanConnection(TcpConnection *connection) {
+        if (!connection)return;
+        auto iter = connectList.find(connection);
+        if (iter != connectList.end()) {
+            delete *iter;
+            connectList.erase(connection);
+        }
+    }
+
     void start();
 
     ~TCPServer() {
-        // delete poller;
-        // ::close(this->fd);
+        for (auto &connection:connectList)
+            delete connection;
+        delete poller;
+        ::close(this->fd);
+        // this->fd = -1;
     }
 };
 
@@ -95,15 +109,21 @@ void TCPServer::initAddress(struct sockaddr_in *address, int port) {
 
 void TCPServer::accept() {
     struct sockaddr_in client_address{};
-    socklen_t len;
+    socklen_t len = sizeof(client_address);
     int client_socket = ::accept(this->fd, (
             struct sockaddr *) &client_address, &len);
-    //  printf("fd is %d  error is:%s\n", this->fd, strerror(errno));
+
+    if (client_socket == -1) {
+        printf("fd is %d  error is:%s\n", this->fd, strerror(errno));
+    }
+
     expect(client_socket != -1, "connection error");
     set_no_blocking(client_socket);
     auto conn = new TcpConnection(client_socket, this->threadPool, this->poller);
+    this->connectList.insert(conn);
     this->connBuildEvent(conn);
 }
+
 
 void TCPServer::onConnBuild(std::function<void(TcpConnection *)> todo) {
     this->connBuildEvent = std::move(todo);

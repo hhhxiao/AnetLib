@@ -24,7 +24,7 @@ class TcpConnection {
 private:
     int socket;
     IOListener *listener;
-    std::string inputBuffer;
+    std::queue<char> inputBuffer;
     std::function<void()> readEvent;
     std::function<void()> closeEvent;
     Poller *poller{};
@@ -50,16 +50,30 @@ public:
 
     void onClose(std::function<void()> todo);
 
+    int readBytes(char *buff, int len) {
+        int real_len = 0;
+        while (!inputBuffer.empty() && real_len < len) {
+            buff[real_len] = inputBuffer.front();
+            inputBuffer.pop();
+            ++real_len;
+        }
+        return real_len;
+    }
+
     std::string getText() {
-        std::string s(this->inputBuffer);
-        this->inputBuffer.clear();
+        std::string s;
+        while (!inputBuffer.empty()) {
+            s.push_back(inputBuffer.front());
+            inputBuffer.pop();
+        }
         return s;
     }
 
-    inline void close() const {
+
+    inline void close() {
         poller->removeListener(this->listener);
-        //delete this->listener;
         ::close(this->socket);
+        //   this->socket = -1;
     }
 
     inline IOListener *getListener() {
@@ -68,23 +82,35 @@ public:
 };
 
 
+/**
+ * init a tcp connection
+ * @param socket socket  the accept file descriptor
+ * @param threadPool a thread pool pointer
+ * @param poller  a poller pointer
+ *
+ * init the listener event
+ * set up callback event
+ * add listener to poller
+ */
 TcpConnection::TcpConnection(int socket, ThreadPool *threadPool, Poller *poller)
         : socket(socket), pool(threadPool),
           poller(poller) {
     expect(threadPool, "[TcpConnection: get a nullptr of thread pool]");
     expect(poller, "[TcpConnection: get a nullptr of poller]");
+
     this->listener = new IOListener(socket, EPOLLIN | EPOLLET | EPOLLRDHUP);
     this->listener->setReadEvent([this] {
-//        readAll();
         this->pool->enqueue([this]() {
             this->readAll();
             this->readEvent();
         });
     });
+
     this->listener->setCloseEvent([this]() {
-        // this->closeEvent();
-        //  this->close();
+        this->closeEvent();
+        this->close();
     });
+
     this->poller->addListener(listener);
 }
 
@@ -98,7 +124,7 @@ void TcpConnection::onClose(std::function<void()> todo) {
 }
 
 TcpConnection::~TcpConnection() {
-    delete this->listener;
+    this->close();
 }
 
 void TcpConnection::sendMessage(const char *msg) const {
@@ -106,12 +132,14 @@ void TcpConnection::sendMessage(const char *msg) const {
 }
 
 
-//readAll byte in the buffer
+/**
+ * read all bytes
+ */
 void TcpConnection::readAll() {
+
     int bytes_len;
-    char buffer[MAX_BUFF_SIZE + 1];
-    memset(buffer, 0, MAX_BUFF_SIZE + 1);
-  //  printf("read all\n");
+    char buffer[MAX_BUFF_SIZE];
+    memset(buffer, 0, MAX_BUFF_SIZE);
     while (true) {
         bytes_len = read(this->socket, buffer, MAX_BUFF_SIZE);
         if (bytes_len < 0) {
@@ -120,7 +148,7 @@ void TcpConnection::readAll() {
             break;
         } else {
             for (int i = 0; i < bytes_len; ++i)
-                this->inputBuffer.push_back(buffer[i]);
+                this->inputBuffer.push(buffer[i]);
             memset(buffer, 0, MAX_BUFF_SIZE);
         }
     }
