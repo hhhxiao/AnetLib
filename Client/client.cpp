@@ -13,6 +13,7 @@
 #include <thread>
 #include <vector>
 
+#define BUFF_SIZE 64
 
 void buildConnect(sockaddr_in *address, int id) {
     int sock = socket(PF_INET, SOCK_STREAM, 0);
@@ -20,19 +21,24 @@ void buildConnect(sockaddr_in *address, int id) {
     int result = connect(sock, (struct sockaddr *) address, sizeof(*address));
     expect(result != -1, "connect failure\n");
     printf("thread: %d build connect\n", id);
-    char buffer[65];
-    buffer[64] = 0;
+    char buffer[BUFF_SIZE];
     FILE *fp = fopen("rand.txt", "rb");
     int len = 0;
-    while ((len = fread(buffer, 64, 1, fp)) > 0) {
-        write(sock, buffer, len);
+    while (true) {
+        len = fread((void *) buffer, 1, BUFF_SIZE, fp);
+        if (len < BUFF_SIZE) {
+            write(sock, buffer, len);
+            break;
+        }
+        write(sock, buffer, BUFF_SIZE);
     }
-    close(sock);
+   // shutdown(sock, SHUT_WR);
+    //  close(sock);
 }
 
 int main(int argc, const char *argv[]) {
-    if (argc != 3) {
-        printf("usage [port]  [fileName]");
+    if (argc != 4) {
+        printf("usage [port]  [fileName] [thread num]");
         return 0;
     }
 
@@ -41,11 +47,15 @@ int main(int argc, const char *argv[]) {
     server_address.sin_family = AF_INET;
     server_address.sin_addr.s_addr = inet_addr(argv[1]);
     server_address.sin_port = htons(atoi(argv[2]));
+    int thread_num = atoi(argv[3]);
     std::vector<std::thread> threadList;
-    threadList.reserve(10);
-    for (int i = 0; i < 10; ++i)
+    threadList.reserve(thread_num);
+    for (int i = 0; i < thread_num; ++i)
         threadList.emplace_back(buildConnect, &server_address, i);
     for (auto &thread :threadList)
         thread.join();
     return 0;
 }
+
+
+

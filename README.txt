@@ -9,6 +9,8 @@
 
 - bugs
 accept() error with Bad file descriptor
-buffer overflow
+[Solved]buffer overflow
+[Solved]data receive not completed
+
 
 
