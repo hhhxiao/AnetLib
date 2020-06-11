@@ -27,6 +27,7 @@ private:
     std::queue<char> inputBuffer;
     std::function<void()> readEvent;
     std::function<void()> closeEvent;
+    std::function<void(char *, size_t)> readByteEvent;
     Poller *poller{};
 
     void readAll();
@@ -50,6 +51,8 @@ public:
 
     void onClose(std::function<void()> todo);
 
+    void onByteRead(std::function<void(char *buffer, size_t num)>);
+
     int readBytes(char *buff, int len) {
         int real_len = 0;
         while (!inputBuffer.empty() && real_len < len) {
@@ -68,7 +71,6 @@ public:
         }
         return s;
     }
-
 
     inline void close() {
         poller->removeListener(this->listener);
@@ -135,8 +137,8 @@ void TcpConnection::sendMessage(const char *msg) const {
 /**
  * read all bytes
  */
-void TcpConnection::readAll() {
-
+void TcpConnection::readAll() { //no linting
+    //  printf("read All\n");
     int bytes_len;
     char buffer[MAX_BUFF_SIZE];
     memset(buffer, 0, MAX_BUFF_SIZE);
@@ -147,11 +149,15 @@ void TcpConnection::readAll() {
         } else if (bytes_len == 0) {
             break;
         } else {
-            for (int i = 0; i < bytes_len; ++i)
-                this->inputBuffer.push(buffer[i]);
+            this->readByteEvent(buffer, bytes_len);
+            //todo: this is a bug  //how to save the buffer
             memset(buffer, 0, MAX_BUFF_SIZE);
         }
     }
+}
+
+void TcpConnection::onByteRead(std::function<void(char *buff, size_t num)> todo) {
+    this->readByteEvent = std::move(todo);
 }
 
 #endif //ANET_TCPCONNECTION_H

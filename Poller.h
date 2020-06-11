@@ -24,6 +24,7 @@
  *Poller
  * a simple IO event detector
  */
+
 class Poller {
 private:
     bool epolling = false;
@@ -64,6 +65,7 @@ void Poller::wait() {
     assert(this->fd != -1);
     this->epolling = true;
     int num = epoll_wait(this->fd, this->events, MAXSIZE, -1);
+  //  printf("epoll event\n");
     for (int i = 0; i < num; ++i) {
         auto listener = (IOListener *) this->events[i].data.ptr;
         unsigned event = events[i].events;
@@ -72,10 +74,10 @@ void Poller::wait() {
                 listener->onRead();
             }
             if (event & EPOLLOUT) {
-                listener->onWrite();
+                //listener->onWrite();
             }
             if (event & EPOLLRDHUP) {
-                listener->onClose();
+                // listener->onClose();
             }
             if (event & EPOLLERR) {
                 printf("EPOLL ERR event\n");

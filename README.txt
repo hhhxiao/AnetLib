@@ -8,9 +8,10 @@
 （7）客户机采用文件传输请求，测试服务器的并发性能
 
 - bugs
-accept() error with Bad file descriptor
+[Solved]accept() error with Bad file descriptor
 [Solved]buffer overflow
 [Solved]data receive not completed
-
+[] can't write into file
+[Solved]too many CPU usage
 
 

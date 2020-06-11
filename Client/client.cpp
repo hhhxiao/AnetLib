@@ -12,19 +12,23 @@
 #include <cstring>
 #include <thread>
 #include <vector>
+#include <mutex>
 
-#define BUFF_SIZE 64
+#define BUFF_SIZE 1024
+
+std::mutex mutex;
 
 //upload function
-void buildConnect(sockaddr_in *address, int id) {
+void buildConnect(sockaddr_in *address, int id, long *timeList) {
     int sock_fd = socket(PF_INET, SOCK_STREAM, 0);
     expect(sock_fd != -1, "socket create failure\n");
     int result = connect(sock_fd, (struct sockaddr *) address, sizeof(*address));
     expect(result != -1, "connect failure\n");
-    printf("thread: %d build connect\n", id);
+    auto start = std::chrono::system_clock::now();
+    // printf("thread: %d build connect\n", id);
     char buffer[BUFF_SIZE];
     FILE *fp = fopen("rand.txt", "rb");
-    int len = 0;
+    int len;
     while (true) {
         len = fread((void *) buffer, 1, BUFF_SIZE, fp);
         if (len < BUFF_SIZE) {
@@ -33,8 +37,13 @@ void buildConnect(sockaddr_in *address, int id) {
         }
         write(sock_fd, buffer, BUFF_SIZE);
     }
+    auto s = std::chrono::duration_cast
+            <std::chrono::microseconds>
+            (std::chrono::system_clock::now() - start);
+    timeList[id] = s.count();
     close(sock_fd);
 }
+
 
 int main(int argc, const char *argv[]) {
     if (argc != 4) {
@@ -49,11 +58,17 @@ int main(int argc, const char *argv[]) {
     server_address.sin_port = htons(atoi(argv[2]));
     int thread_num = atoi(argv[3]);
     std::vector<std::thread> threadList;
+    long *timeList = new long[thread_num];
     threadList.reserve(thread_num);
     for (int i = 0; i < thread_num; ++i)
-        threadList.emplace_back(buildConnect, &server_address, i);
+        threadList.emplace_back(buildConnect, &server_address, i, timeList);
     for (auto &thread :threadList)
         thread.join();
+    long total = 0;
+    for (int i = 0; i < thread_num; i++)
+        total += timeList[i];
+    printf("%d average time is %ld us\n", thread_num, total / thread_num);
+    delete[] timeList;
     return 0;
 }
 

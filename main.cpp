@@ -4,6 +4,7 @@
 #include "DataBuffer.h"
 #include <numeric>
 #include <map>
+#include <fstream>
 
 using namespace std;
 
@@ -12,36 +13,29 @@ void f() {
 }
 
 int main() {
-    ThreadPool pool;
+
+    //thread pool with 16 threads
+    ThreadPool pool(16);
     TCPServer server(8888, &pool);
     int i = 0;
-    std::map<TcpConnection *, int> connList;
-    std::map<int, FILE *> fileList;
+    std::map<TcpConnection *, FILE *> connList;
+    FILE *fp = fopen("a.txt", "w+");
 
-    server.onConnBuild([&connList, &i, &fileList](TcpConnection *conn) {
+    server.onConnBuild([&connList, &i, fp](TcpConnection *conn) {
         //a new connection build
-        printf("%d has connected\n", i);
-        connList.insert({conn, i});
-        FILE *fp = fopen(std::to_string(i).append(".txt").c_str(), "wb");
-        fileList.insert({i, fp});
         ++i;
-
-        conn->onRead([conn, &connList, &fileList] {
-            auto fp = fileList[connList[conn]];
-            if (fp) {
-                fputs(conn->getText().c_str(), fp);
+        printf("%d has connected\n,there has %lu connections\n", i, connList.size());
+        conn->onByteRead([&connList, &conn, &fp](char *buffer, std::size_t num) {
+            printf("%p read %lu bytes\n", conn, num);
+            for (int i = 0; i < num; ++i) {
+                fputc(buffer[i], fp);
             }
+          //  fputs("\n----------------------------------\n", fp);
         });
 
-        conn->onClose([conn, &connList, &fileList] {
-            auto connIndex = connList[conn];
-            printf("%d has closed\n", connIndex);
-            auto fp = fileList[connIndex];
-            if (fp) {
-                fclose(fp);
-            }
-            fileList.erase(connIndex);
-            connList.erase(conn);
+        conn->onClose([conn, &connList] {
+            if (!conn)return;
+            printf("%p has closed\n", conn);
         });
     });
     server.start();
