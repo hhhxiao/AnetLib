@@ -45,7 +45,13 @@ public:
         this->logFile = fileName;
     }
 
-    void onConnBuild(std::function<void(TcpConnection *)> todo);
+    void onConnBuild(std::function<void(TcpConnection *)> &&todo) {
+        this->connBuildEvent = std::move(todo);
+    }
+
+    void onConnectionBuild(const std::function<void(TcpConnection *)> &todo) {
+        this->connBuildEvent = todo;
+    }
 
     void exitIf() {
     }
@@ -91,7 +97,7 @@ TCPServer::TCPServer(int port, ThreadPool *pool) : port(port), threadPool(pool) 
     result = listen(this->fd, 5);
     expect(result != -1, "listener error");
     auto listener = new IOListener(this->fd, EPOLLIN);
-    listener->setReadEvent([this]() { this->accept(); });
+    listener->setReadEvent([this] { this->accept(); });
     this->poller->addListener(listener);
     info("server config finish");
 }
@@ -110,24 +116,17 @@ void TCPServer::initAddress(struct sockaddr_in *address, int port) {
 void TCPServer::accept() {
     struct sockaddr_in client_address{};
     socklen_t len = sizeof(client_address);
-    int client_socket = ::accept(this->fd, (
-            struct sockaddr *) &client_address, &len);
-
+    int client_socket = ::accept(this->fd, (struct sockaddr *) &client_address, &len);
     if (client_socket == -1) {
         printf("fd is %d  error is:%s\n", this->fd, strerror(errno));
     }
 
-
     expect(client_socket != -1, "connection error");
     set_no_blocking(client_socket);
-    auto conn = new TcpConnection(client_socket, this->threadPool, this->poller);
-    this->connectList.insert(conn);
+    auto *conn = new TcpConnection(client_socket, this->threadPool, this->poller);
     this->connBuildEvent(conn);
+    this->connectList.insert(conn);
 }
 
-
-void TCPServer::onConnBuild(std::function<void(TcpConnection *)> todo) {
-    this->connBuildEvent = std::move(todo);
-}
 
 #endif //ANET_TCPSERVER_H

@@ -37,6 +37,7 @@ void buildConnect(sockaddr_in *address, int id, long *timeList) {
         }
         write(sock_fd, buffer, BUFF_SIZE);
     }
+    printf(" thread  %d finished\n", id);
     auto s = std::chrono::duration_cast
             <std::chrono::microseconds>
             (std::chrono::system_clock::now() - start);
@@ -67,7 +68,7 @@ int main(int argc, const char *argv[]) {
     long total = 0;
     for (int i = 0; i < thread_num; i++)
         total += timeList[i];
-    printf("%d average time is %ld us\n", thread_num, total / thread_num);
+    printf("\n %d average time is %ld us\n", thread_num, total / thread_num);
     delete[] timeList;
     return 0;
 }

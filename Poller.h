@@ -16,24 +16,24 @@
 #include <iostream>
 #include <cerrno>
 
-#define  MAXSIZE 1024
+#define  MAX_EPOLL_SIZE 128
 
 #include <set>
 
 /**
  *Poller
- * a simple IO event detector
+ * a simple IO eventType detector
  */
 
 class Poller {
 private:
     bool epolling = false;
     int fd = -1;
-    epoll_event events[MAXSIZE]{};
+    epoll_event events[MAX_EPOLL_SIZE]{};
     std::set<IOListener *> listeners;
 public:
     Poller() {
-        this->fd = epoll_create(MAXSIZE);
+        this->fd = epoll_create(MAX_EPOLL_SIZE);
         expect(this->fd != -1, "poller create failure");
     }
 
@@ -42,6 +42,7 @@ public:
             ::close(this->fd);
         }
     }
+
 
     //none copyable
     Poller(const Poller &poller) = delete;
@@ -56,6 +57,7 @@ public:
 
     void removeListener(IOListener *listener);
 
+
     void changeListener(IOListener *listener, unsigned int event);
 };
 
@@ -63,24 +65,28 @@ public:
 //wait once
 void Poller::wait() {
     assert(this->fd != -1);
-    this->epolling = true;
-    int num = epoll_wait(this->fd, this->events, MAXSIZE, -1);
-  //  printf("epoll event\n");
+    int num = epoll_wait(this->fd, this->events, MAX_EPOLL_SIZE, -1);
+    //  printf("epoll eventType\n");
     for (int i = 0; i < num; ++i) {
         auto listener = (IOListener *) this->events[i].data.ptr;
         unsigned event = events[i].events;
+        printf("event is %x\n", event);
         if (listener) {
             if (event & EPOLLIN) {
+               // printf("read event\n");
                 listener->onRead();
             }
+
             if (event & EPOLLOUT) {
-                //listener->onWrite();
+                listener->onWrite();
             }
-            if (event & EPOLLRDHUP) {
-                // listener->onClose();
+            if (event % EPOLLRDHUP) {
+                //printf("close event\n");
+              //  listener->onClose();
             }
+
             if (event & EPOLLERR) {
-                printf("EPOLL ERR event\n");
+                printf("epoll  error  event\n");
             }
         }
     }
@@ -90,6 +96,7 @@ void Poller::wait() {
     while (true)
         wait();
 }
+
 
 void Poller::addListener(IOListener *listener) {
     expect(listener, "[add listener:] receive a nullptr");

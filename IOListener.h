@@ -4,6 +4,7 @@
 
 #ifndef ANET_IOLISTENER_H
 #define ANET_IOLISTENER_H
+
 #include "utils.h"
 #include <functional>
 #include <utility>
@@ -11,7 +12,7 @@
 class IOListener {
 private:
     int fd;
-    const unsigned event;
+    const unsigned eventType;
     std::function<void()> readEvent;
     std::function<void()> writeEvent;
     std::function<void()> closeEvent;
@@ -22,11 +23,17 @@ public:
 
     IOListener(int fd, unsigned events);
 
-    void setReadEvent(std::function<void()> task);
+    void setReadEvent(std::function<void()> &&task) { this->readEvent = std::move(task); }
 
-    void setWriteEvent(std::function<void()> task);
+    void setReadEvent(const std::function<void()> &task) { this->readEvent = task; }
 
-    void setCloseEvent(std::function<void()> task);
+    void setWriteEvent(std::function<void()> &&task) { this->writeEvent = std::move(task); }
+
+    void setWriteEvent(const std::function<void()> &task) { this->writeEvent = task; }
+
+    void setCloseEvent(std::function<void()> &&task) { this->closeEvent = std::move(task); }
+
+    void setClose(const std::function<void()> &task) { this->closeEvent = task; }
 
 
     void onWrite() {
@@ -35,7 +42,8 @@ public:
 
 
     void onRead() const {
-        //printf("read event from %d\n", this->fd);
+        // printf("read eventType from %d\n", this->fd);
+        //printf("Listener: onRead\n");
         this->readEvent();
     }
 
@@ -45,28 +53,17 @@ public:
     }
 
     inline unsigned getEvent() const {
-        return this->event;
+        return this->eventType;
     }
 
     void onClose() {
-        this->closeEvent();
+        if (this->closeEvent)
+            this->closeEvent();
     }
 };
 
-IOListener::IOListener(int fd, unsigned int events) : fd(fd), event(events) {
-    expect(fd > 0 ,"[IO Listener] fd error");
-}
-
-void IOListener::setWriteEvent(std::function<void()> task) {
-    this->writeEvent = std::move(task);
-}
-
-void IOListener::setReadEvent(std::function<void()> task) {
-    this->readEvent = std::move(task);
-}
-
-void IOListener::setCloseEvent(std::function<void()> task) {
-    this->closeEvent = std::move(task);
+IOListener::IOListener(int fd, unsigned int events) : fd(fd), eventType(events) {
+    expect(fd > 0, "[IO Listener] fd error");
 }
 
 

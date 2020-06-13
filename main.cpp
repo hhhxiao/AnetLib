@@ -5,37 +5,50 @@
 #include <numeric>
 #include <map>
 #include <fstream>
+#include <memory>
+#include <utility>
+#include <unistd.h>
+#include <fcntl.h>
 
 using namespace std;
 
-void f() {
+class Test {
+private:
+    std::function<void()> todo;
+public:
+    void setCallBack(std::function<void()> callBack) {
+        todo = std::move(callBack);
+    }
 
-}
+    void call() {
+        todo();
+    }
+};
+
 
 int main() {
-
-    //thread pool with 16 threads
     ThreadPool pool(16);
     TCPServer server(8888, &pool);
     int i = 0;
-    std::map<TcpConnection *, FILE *> connList;
-    FILE *fp = fopen("a.txt", "w+");
+    std::map<TcpConnection *, std::ofstream *> connList;
+    server.onConnBuild([&](TcpConnection *connection) {
 
-    server.onConnBuild([&connList, &i, fp](TcpConnection *conn) {
-        //a new connection build
+        printf("a new connection: %p\n", connection);
         ++i;
-        printf("%d has connected\n,there has %lu connections\n", i, connList.size());
-        conn->onByteRead([&connList, &conn, &fp](char *buffer, std::size_t num) {
-            printf("%p read %lu bytes\n", conn, num);
-            for (int i = 0; i < num; ++i) {
-                fputc(buffer[i], fp);
-            }
-          //  fputs("\n----------------------------------\n", fp);
+        auto fileName = std::to_string(i).append(".txt");
+        connList[connection] = new std::ofstream(fileName);
+
+        connection->onByteRead([&](TcpConnection *conn, char *buffer, std::size_t num) {
+            auto stream = connList[conn];
+            for (int i = 0; i < num; i++)
+                (*stream) << buffer[i];
+            stream->flush();
         });
 
-        conn->onClose([conn, &connList] {
-            if (!conn)return;
-            printf("%p has closed\n", conn);
+        connection->onClose([&](TcpConnection *conn) {
+            auto stream = connList[conn];
+            stream->close();
+            printf("closed\n");
         });
     });
     server.start();
