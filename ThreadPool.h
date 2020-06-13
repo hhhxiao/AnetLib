@@ -92,7 +92,6 @@ ThreadPool::~ThreadPool() {
     cond_val.notify_all();
     for (auto &t:work_threads)
         t.join();
-
 }
 
 #endif //ANET_THREADPOOL_H

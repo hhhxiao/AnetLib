@@ -5,10 +5,15 @@
 #include "utils.h"
 #include <chrono>
 #include <fcntl.h>
+#include <ctime>
+#include <cstring>
 
-const char *now() {
+std::string now() {
     auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    return std::ctime(&now);
+    const char *str = std::ctime(&now);
+    std::string s(str);
+    s[s.length() - 1] = 0;
+    return s;
 }
 
 
@@ -18,15 +23,26 @@ void expect(bool val, const char *msg) {
     }
 }
 
-void log(const char *msg) {
+
+void debug(const char *fmt, ...) {
 #ifdef DEBUG
-    printf("[%s LOG]%s\n", now(), msg);
+    printf("[%s DEBUG] ", now().c_str());
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+    printf("\n");
 #endif
+
 }
 
-
-void info(const char *info) {
-    printf("[%s INFO]%s\n", now(), info);
+void info(const char *fmt, ...) {
+    printf("[%s INFO] ", now().c_str());
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+    printf("\n");
 }
 
 void set_no_blocking(int fd) {

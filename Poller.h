@@ -27,7 +27,7 @@
 
 class Poller {
 private:
-    bool epolling = false;
+    bool epolling = true;
     int fd = -1;
     epoll_event events[MAX_EPOLL_SIZE]{};
     std::set<IOListener *> listeners;
@@ -43,6 +43,7 @@ public:
         }
     }
 
+    void setExit();
 
     //none copyable
     Poller(const Poller &poller) = delete;
@@ -51,12 +52,11 @@ public:
 
     void wait();
 
-    [[noreturn]] void loop_wait();
+    void loop_wait();
 
     void addListener(IOListener *listener);
 
     void removeListener(IOListener *listener);
-
 
     void changeListener(IOListener *listener, unsigned int event);
 };
@@ -70,31 +70,34 @@ void Poller::wait() {
     for (int i = 0; i < num; ++i) {
         auto listener = (IOListener *) this->events[i].data.ptr;
         unsigned event = events[i].events;
-        printf("event is %x\n", event);
         if (listener) {
             if (event & EPOLLIN) {
-               // printf("read event\n");
+                if (listener->getFd() == STDIN_FILENO) {
+                    this->epolling = false;
+                }
+                debug("read event");
                 listener->onRead();
             }
-
             if (event & EPOLLOUT) {
+                debug("write event");
                 listener->onWrite();
             }
             if (event % EPOLLRDHUP) {
-                //printf("close event\n");
-              //  listener->onClose();
+                debug("close event");
+                listener->onClose();
             }
 
             if (event & EPOLLERR) {
-                printf("epoll  error  event\n");
+                info("epoll error event\n");
             }
         }
     }
 }
 
-[[noreturn]] void Poller::loop_wait() {
-    while (true)
+void Poller::loop_wait() {
+    while (epolling)
         wait();
+    ::close(this->fd);
 }
 
 
@@ -114,12 +117,10 @@ void Poller::addListener(IOListener *listener) {
 void Poller::removeListener(IOListener *listener) {
     if (!listener)
         return;
-    int r = epoll_ctl(this->fd, EPOLL_CTL_DEL, listener->getFd(), nullptr);
-    expect(r != -1, "epoll remove failure");
+    epoll_ctl(this->fd, EPOLL_CTL_DEL, listener->getFd(), nullptr);
     this->listeners.erase(listener);
-    delete listener;
+    //delete listener;
 }
-
 
 void Poller::changeListener(IOListener *listener, unsigned int event) {
     expect(listener, "[remove listener:] receive a nullptr");
@@ -130,6 +131,14 @@ void Poller::changeListener(IOListener *listener, unsigned int event) {
     epoll_event.data.fd = listener->getFd();
     epoll_event.data.ptr = listener;
     epoll_ctl(this->fd, EPOLL_CTL_MOD, listener->getFd(), &epoll_event);
+}
+
+void Poller::setExit() {
+    auto listener = new IOListener(STDIN_FILENO, EPOLLIN);
+    listener->setReadEvent([] {
+        debug("server exited");
+    });
+    this->addListener(listener);
 }
 
 

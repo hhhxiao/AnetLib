@@ -89,9 +89,9 @@ TcpConnection::TcpConnection(int socket, ThreadPool *threadPool, Poller *poller)
 
     this->listener = new IOListener(socket, EPOLLIN | EPOLLET | EPOLLRDHUP);
     this->listener->setReadEvent([this] {
-        this->pool->enqueue([this]() {
-            this->readAll();
-        });
+        // this->pool->enqueue([this]() {
+        this->readAll();
+        // });
     });
 
     this->listener->setCloseEvent([this]() {
@@ -101,7 +101,6 @@ TcpConnection::TcpConnection(int socket, ThreadPool *threadPool, Poller *poller)
 
     this->poller->addListener(listener);
 }
-
 
 TcpConnection::~TcpConnection() {
     this->close();

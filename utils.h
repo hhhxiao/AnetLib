@@ -9,17 +9,18 @@
 
 #define DEBUG
 
+#include <cstdarg>
 #include <cstdio>
 #include <stdexcept>
 
 void expect(bool val, const char *msg);
 
-void log(const char *msg);
+void debug(const char *fmt, ...);
 
-void info(const char *info);
+void info(const char *fmt, ...);
 
 void set_no_blocking(int fd);
 
 #endif //ANET_UTILS_H
 
-const char *now();
+std::string now();

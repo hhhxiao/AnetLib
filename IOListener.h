@@ -63,7 +63,7 @@ public:
 };
 
 IOListener::IOListener(int fd, unsigned int events) : fd(fd), eventType(events) {
-    expect(fd > 0, "[IO Listener] fd error");
+    expect(fd >= 0, "[IO Listener] fd error");
 }
 
 

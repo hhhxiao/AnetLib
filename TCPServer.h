@@ -22,10 +22,6 @@
 class TCPServer {
 private:
     ThreadPool *threadPool;
-    std::string logFile;
-    std::ofstream logStream;
-    std::set<TcpConnection *> connectList;
-
 
     static void initAddress(struct sockaddr_in *address, int port);
 
@@ -41,36 +37,16 @@ public:
 
     TCPServer(int port, ThreadPool *pool);
 
-    void setLogFile(const std::string &fileName) {
-        this->logFile = fileName;
-    }
 
-    void onConnBuild(std::function<void(TcpConnection *)> &&todo) {
-        this->connBuildEvent = std::move(todo);
-    }
+    void onConnBuild(std::function<void(TcpConnection *)> &&todo) { this->connBuildEvent = std::move(todo); }
 
-    void onConnectionBuild(const std::function<void(TcpConnection *)> &todo) {
-        this->connBuildEvent = todo;
-    }
+    void onConnectionBuild(const std::function<void(TcpConnection *)> &todo) { this->connBuildEvent = todo; }
 
-    void exitIf() {
-    }
-
-
-    void cleanConnection(TcpConnection *connection) {
-        if (!connection)return;
-        auto iter = connectList.find(connection);
-        if (iter != connectList.end()) {
-            delete *iter;
-            connectList.erase(connection);
-        }
-    }
+    void exitIf() {}
 
     void start();
 
     ~TCPServer() {
-        for (auto &connection:connectList)
-            delete connection;
         delete poller;
         ::close(this->fd);
         // this->fd = -1;
@@ -80,26 +56,29 @@ public:
 
 void TCPServer::start() {
     expect(poller, "start failure: nullptr(poller)");
-    log("server start");
+    info("server start at: %d", this->port);
     this->poller->loop_wait();
 }
 
 TCPServer::TCPServer(int port, ThreadPool *pool) : port(port), threadPool(pool) {
     expect(pool, "get a nullptr of thread pool");
     this->poller = new Poller();
+    poller->setExit();
     struct sockaddr_in address{};
     initAddress(&address, port);
     this->fd = socket(PF_INET, SOCK_STREAM, 0);
     expect(fd != -1, "socket create error");
+    debug("create socket success");
     set_no_blocking(this->fd);
     int result = bind(this->fd, (struct sockaddr *) &address, sizeof(address));
     expect(result != -1, "binding error");
+    debug("binging socket success");
     result = listen(this->fd, 5);
     expect(result != -1, "listener error");
     auto listener = new IOListener(this->fd, EPOLLIN);
     listener->setReadEvent([this] { this->accept(); });
     this->poller->addListener(listener);
-    info("server config finish");
+    info("server init finished");
 }
 
 
@@ -118,14 +97,17 @@ void TCPServer::accept() {
     socklen_t len = sizeof(client_address);
     int client_socket = ::accept(this->fd, (struct sockaddr *) &client_address, &len);
     if (client_socket == -1) {
-        printf("fd is %d  error is:%s\n", this->fd, strerror(errno));
+        debug("fd is %d error is:%s\n", this->fd, strerror(errno));
     }
-
     expect(client_socket != -1, "connection error");
+
+    char buff[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &(client_address.sin_addr), buff, INET_ADDRSTRLEN);
+    info("a new Tcp connection: %s", buff);
+
     set_no_blocking(client_socket);
     auto *conn = new TcpConnection(client_socket, this->threadPool, this->poller);
     this->connBuildEvent(conn);
-    this->connectList.insert(conn);
 }
 
 
