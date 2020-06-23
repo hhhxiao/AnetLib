@@ -14,9 +14,7 @@
 #include <vector>
 #include <mutex>
 
-#define BUFF_SIZE 256
-
-std::mutex mutex;
+#define BUFF_SIZE 1024
 
 //upload function
 void buildConnect(sockaddr_in *address, int id, long *timeList, size_t *bytes) {
@@ -25,13 +23,12 @@ void buildConnect(sockaddr_in *address, int id, long *timeList, size_t *bytes) {
     int result = connect(sock_fd, (struct sockaddr *) address, sizeof(*address));
     expect(result != -1, "connect failure\n");
     auto start = std::chrono::system_clock::now();
-    // printf("thread: %d build connect\n", id);
     char buffer[BUFF_SIZE];
     FILE *fp = fopen("rand.txt", "rb");
     int len;
+
     while (true) {
         len = fread((void *) buffer, 1, BUFF_SIZE, fp);
-        printf("thread %d: send [%d] bytes\n", id, len);
         if (len < BUFF_SIZE) {
             write(sock_fd, buffer, len);
             bytes[id] += len;
@@ -39,14 +36,13 @@ void buildConnect(sockaddr_in *address, int id, long *timeList, size_t *bytes) {
         }
         write(sock_fd, buffer, BUFF_SIZE);
     }
-    printf(" thread  %d finished\n", id);
+    shutdown(sock_fd, SHUT_WR);
+    // printf(" thread  %d finished with message %s\n", id, buffer);
     auto s = std::chrono::duration_cast
             <std::chrono::microseconds>
             (std::chrono::system_clock::now() - start);
     timeList[id] = s.count();
-    close(sock_fd);
 }
-
 
 int main(int argc, const char *argv[]) {
     if (argc != 4) {
